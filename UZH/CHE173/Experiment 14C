@@ -1,0 +1,186 @@
+### BIO173/2022/Experiment 14C/Robin Fricker
+
+### Environment ###############################################################
+rm(list=ls())
+
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(ggfortify)
+#library(renz)
+
+## Experiment 1 ###############################################################
+# enter  measurements:
+Es = c("E1", "E2", "E3", "E4")
+E1 = c(14.09, 11.47, 14.45)
+E2 = c(16.84, 22.17, 17.62)
+E3 = c(26.03, 28.70, 26.29)
+E4 = c(0)
+
+# Calc: mean emerging time (met1), emerging rate (er1), concentration e_conc
+t1 = c(mean(E1), mean(E2), mean(E3), mean(E4))
+e_rate1 = 1/t1
+e_conc = c(100, 50, 25, 0) # concentration in relative units
+
+df1 <- data.frame(Es,e_conc,e_rate1)
+
+# change "inf" entries to 0
+df1 <- df1 %>%
+  mutate(e_rate1 = ifelse(is.infinite(e_rate1), 0, e_rate1 ))
+
+# Plotting: er1 ~ e_conc
+ggplot(df1, aes(x = e_conc , y = e_rate1, label = Es,)) +
+  ggtitle("Experiment 1") +
+  geom_point(size = 1.5, colour= "forestgreen") + # best colour
+  geom_text(vjust = -0.5) +
+  xlab("enzyme concentration [units/m]") +
+  ylab("emerging rate v=1/t [1/s]") +
+  theme_bw()
+
+## Experiment 2 ###############################################################
+# enter measurements
+Ss = c("S1", "S2", "S3", "S4", "S5", "S6")
+S1 = mean(c(14.69, 19.17))
+S2 = mean(c(22.80, 19.17))
+S3 = mean(c(28.87, 27.50))
+S4 = mean(c(40.57, 40.68))
+S5 = mean(c(59.94, 61.72))
+S6 = mean(c(105.85, 147.67))
+
+# Calc: mean emerging time (t2), emerging rate (e_rate2), concentration s_conc
+t2 = c(S1,S2,S3,S4,S5,S6)
+e_rate2 = 1/t2
+s_conc = c(1.15, 0.66, 0.43, 0.3, 0.18, 0.08)
+inv_s_conc = 1/s_conc
+
+df2 <- data.frame(Ss,s_conc,inv_s_conc,t2,e_rate2)
+
+# make a model with the formula y = a*x/(b+x); a=Vmax, b=Km
+m2 <- nls(e_rate2 ~ Vmax * s_conc / (Km + s_conc), data = df2,start = 
+list(Vmax = max(e_rate2), Km = 0.3) )
+summary(m2)
+print(df2)
+
+# calculate Vmax and Km based on the model m2
+Vmax2 = coef(m2)[1] / 2
+Km = coef(m2)[2]
+print(Vmax2)
+print(Km)
+
+# Michalis Menten plot and fit with formula
+ggplot(df2, aes(x = s_conc , y = e_rate2, label = Ss,)) +
+  ggtitle("Experiment 2 (Michaelis-Menten plot)") +
+  geom_point(size = 1.5, colour= "forestgreen") + # best colour
+  geom_text(vjust = -0.5) +
+  xlab("substrate concentrations [mol/l]") +
+  ylab("emerging rate v=1/t [1/s]") +
+  geom_line(data = data.frame(s_conc = s_conc, e_rate2 = predict(m2)), color = "forestgreen") +
+  geom_text(aes(x = 0.8  , y = max(e_rate2) / 2, label = paste("Km =", round(Km, 2),
+    "\nVmax/2 =", round(Vmax2, 2), "\ny ~ Vmax * x / (Km + x)"), hjust = 0)) +
+  theme_bw()
+
+# Create a Lineweaver-Burk plot for Experiment 2
+ggplot(df2, aes(x = 1/s_conc, y = 1/e_rate2)) +
+  geom_point(size = 2, colour = "forestgreen") +
+  geom_text(aes(label = Ss), vjust = -1) +
+  geom_smooth(method = "lm", formula = y ~ x, color = "forestgreen") +
+  labs(x = "1/[S]", y = "1/V") +
+  ggtitle("Experiment 2 (Lineweaver-Burk plot)") +
+  xlab("1/substrate concentration [1/mol/l]") +
+  ylab("1/emerging rate [1/(1/s)]") +
+  geom_text(aes(x = 1, y = max(1/e_rate2) / 2, label = paste("Km =",
+    round(Km, 2), "\nVmax/2 =", round(Vmax2, 2)), hjust = 0)) +
+  coord_cartesian(xlim = c(0, max(1/s_conc) + 1), ylim = c(0, max(1/e_rate2) + 1)) +
+  theme_bw()
+
+## Experiment 3 ################################################################
+# enter measurements:
+# with 1x inhibitor
+S1x1 = mean(c(18.27, 22.34))
+S2x1 = mean(c(28.35, 26.05))
+S3x1 = mean(c(34.01, 30.07))
+S4x1 = mean(c(41.58, 62.02))
+S5x1 = mean(c(63.71, 59.02))
+S6x1 = mean(c(145.22, 161.08))
+# with 2x inhibitor
+S1x2 = mean(c(17.37, 18.81))
+S2x2 = mean(c(24.69, 25.36))
+S3x2= mean(c(41.97, 47.03))
+S4x2 = mean(c(45.69, 43.67))
+S5x2 = mean(c(74.71, 67.92))
+S6x2 = mean(c(156.54, 145.20))
+
+tx1 = c(S1x1, S2x1, S3x1, S4x1, S5x1, S6x1) # S1-S6 with 1x inhibitor
+tx2 = c(S1x2, S2x2, S3x2, S4x2, S5x2, S6x2) # S1-S6 with 2x inhibitor
+e_rate_Sx1 = 1/tx1
+e_rate_Sx2 = 1/tx2
+
+df3 <- data.frame(Ss,s_conc,inv_s_conc,tx1,tx2, e_rate_Sx1, e_rate_Sx2)
+
+### Create the models m3x1 and m3x2
+m3x1 <- nls(e_rate_Sx1 ~ Vmax * s_conc / (Km + s_conc), data = df3,start = 
+            list(Vmax = max(e_rate_Sx1), Km = 0.3) )
+
+m3x2 <- nls(e_rate_Sx2 ~ Vmax * s_conc / (Km + s_conc), data = df3,start = 
+              list(Vmax = max(e_rate_Sx2), Km = 0.3) )
+summary(m3x1)
+summary(m3x2)
+
+# Calculate Km and Vmax/2 for the two models
+Vmax23x1 = coef(m3x1)[1] / 2
+Km3x1 = coef(m3x1)[2]
+
+Vmax23x2 = coef(m3x2)[1] / 2
+Km3x2 = coef(m3x2)[2]
+
+# Michaelis-Menten plot and use the formula for the fit, for x1, x2 inhibitor
+ggplot(df3, aes(x = s_conc , y = e_rate_Sx1, label = Ss,)) +
+  ggtitle("Experiment 3 (Michaelis-Menten plot)") +
+  xlab("substrate concentrations [mol/l]") +
+  ylab("emerging rate v=1/t [1/s]") +
+  geom_text(vjust = -0.5) +
+  geom_point(size = 1.5, colour= "forestgreen") + # points for 1x inhibitor
+  geom_point(data = df3, aes(x = s_conc, y = e_rate_Sx2), size = 1.5, color = "red") +  # Points for 2x inhibitor
+  geom_line(data = data.frame(s_conc = s_conc, e_rate_Sx1 = predict(m3x1)), color = "forestgreen") +# 1x inhibitor
+  geom_line(data = data.frame(s_conc = s_conc, e_rate_Sx1 = predict(m3x2)), color = "red") + # 2x inhibitor
+  geom_text(aes(x = 0.8, y = max(e_rate_Sx1) / 2, label = paste("Kmx1 =", round(Km3x1, 2),
+    "\nVmaxx1/2 =", round(Vmax23x1, 2),"\nKmx2 =", round(Km3x2, 2),"\nVmaxx2/2 =",
+    round(Vmax23x2, 2), "\ny ~ Vmax * x / (Kmx + x)"), hjust = 0)) +
+  geom_text(data = subset(df3, Ss %in% c("S1", "S2", "S3", "S4", "S5")),
+    aes(x = s_conc, y = e_rate_Sx2, label = Ss), vjust = -0.5, hjust = -0.5) +
+  theme_bw()
+
+# Create a Lineweaver-Burk plot for Experiment 3
+ggplot(df3, aes(x = 1/s_conc, y = 1/e_rate_Sx1)) +
+  geom_point(size = 2, colour = "forestgreen") +
+  geom_point(data = df3, aes(x = 1/s_conc, y = 1/e_rate_Sx2), size = 2, color = "red") +  # Points for 2x inhibitor
+  geom_smooth(data = df3, aes(x = 1/s_conc, y = 1/e_rate_Sx2), method = "lm", formula = y ~ x, color = "red") + 
+  geom_text(aes(label = Ss),vjust = +5) +
+  geom_smooth(method = "lm", formula = y ~ x, color = "forestgreen") +
+  labs(x = "1/[S]", y = "1/V") +
+  ggtitle("Experiment 3 (Lineweaver-Burk plot)") +
+  xlab("1/substrate concentration [1/mol/l]") +
+  ylab("1/emerging rate [1/(1/s)]") +
+  geom_text(aes(x = 1, y = max(1/e_rate_Sx1) / 2, label = paste("Kmx1 =",
+    round(Km3x1, 2), "\nVmaxx1/2 =", round(Vmax23x1, 2), "\nKmx2 =", round(Km3x2, 2),
+    "\nVmaxx2/2 =", round(Vmax23x2, 2)), hjust = 0)) +
+  coord_cartesian(xlim = c(0, max(1/s_conc) + 1), ylim = c(0, max(1/e_rate_Sx1) + 1)) +
+  theme_bw()
+
+## Experiment 4 ###############################################################
+# enter measurements:
+E41 = mean(c(0))
+E42 = mean(c(46.13,39.18,42.17))
+E43 = mean(c(31.82,32.88,29.78))
+E44 = mean(c(30.91,29.78,34.67))
+# no reaction in e41
+pH = c(4,6,8,9)
+t4 = c(E41,E42,E43,E44)
+e_rate4 = 1/t4
+
+df4 <- data.frame(Es, t4, e_rate4, pH)
+
+ggplot(df4, aes(x = factor(pH), y = t4)) +
+  geom_bar(stat = "identity", fill = "forestgreen") +
+  labs(x = "pH", y = "t4") +
+  ggtitle("Bar Plot Experiment 4")
